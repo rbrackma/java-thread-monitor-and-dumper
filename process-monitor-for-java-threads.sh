@@ -58,8 +58,20 @@ if [ "$1" == "-?" -o "$1" == "-h" ]; then
   exit 1
 fi
 
+
+if [ "x$(ps -ef | grep "$0 -procuniqueid" | grep -v grep)" != "x" ]; then
+  echo "---ERROR---"
+  echo "Script already running !"
+  echo "Kill running script before relaunching again."
+  exit 1
+fi
+
+
+
 if [ "$(id -un)" = "root" ]; then
+  echo "---ERROR---"
   echo "Should not be run as 'root', but with the user running the JVM !"
+  echo "jstack will not work properly otherwise."
   exit 1
 fi
 
@@ -72,7 +84,8 @@ fi
 # TODO add check wheather a script is already running 
 
 if [ "x$(command -v $JSTACK)" = "x" ]; then
-  echo "$JSTACK is not available on system or JAVA_HOME is not set !"
+  echo "---ERROR---"
+  echo "$JSTACK is not available on the system path ! JAVA_HOME might not be set. JDK is needed (JRE is not sufficient) !"
   exit 1
 fi
 
@@ -86,6 +99,13 @@ if [ "x$1" = "x" ]; then
   exit 1
 fi
 
+# first parameter has to be -procuniqueid
+if [ "$1" != "-procuniqueid" ]; then
+  usage
+  echo "---ERROR---"
+  echo "The first passed in parameter has to be -procuniqueid."  
+  exit 1
+fi
 
 while [ "x$1" != "x" ]; do
   case "$1" in
@@ -130,8 +150,9 @@ while [ "x$1" != "x" ]; do
     shift
     ;;
   *)
-    echo "Invalid option: $2"
     usage
+		echo "---ERROR---"
+		echo "Invalid option: $2"
     exit 1
     ;;
   esac
