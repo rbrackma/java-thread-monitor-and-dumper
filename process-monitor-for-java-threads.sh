@@ -58,15 +58,14 @@ if [ "$1" == "-?" -o "$1" == "-h" ]; then
   exit 1
 fi
 
-
-if [ "x$(ps -ef | grep "$0 -procuniqueid" | grep -v grep)" != "x" ]; then
+number=$(pidof -x $(basename $0) | wc -w)
+if [ "$number" != "2" ]; then
+  usage 
   echo "---ERROR---"
   echo "Script already running !"
   echo "Kill running script before relaunching again."
   exit 1
 fi
-
-
 
 if [ "$(id -un)" = "root" ]; then
   echo "---ERROR---"
