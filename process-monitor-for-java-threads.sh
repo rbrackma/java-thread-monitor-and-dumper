@@ -7,27 +7,28 @@
 
 VERSION=2015-01-22-RBR
 
+# defaults to 1 minute
 CHECKINTERVAL=1
+
+# defaults to 60 minutes
 LOOPDURATION=60
 THREADDUMPDIR=$(pwd)
-# /!\ A thread dump will take up 100k of disk resources
+# /!\ A thread dump will take up to 100k of disk resources
 THREADDUMPMAXBACKUP=100
 
-ULIMIT_U=1024
-ULIMT_U_TDUMP_START=900
+ULIMT_U_TDUMP_START=800
 
 function usage()
 {
 	echo "$0, $VERSION"
 	echo "Usage: "
-	echo "    nohup $0 -procuniqueid <your-proc-id> [-checkinterval <checkminutes>] [-loopduration <loopminutes>] [-theaddumpdir <dir>] [-threaddumpmaxbackup <#>] [-ulimitmaxproc <1024>] [-ulimitmaxprocThreadDumpStart <#>] &"
+	echo "    nohup $0 -procuniqueid <your-proc-id> [-checkinterval <checkminutes>] [-loopduration <loopminutes>] [-threaddumpdir <dir>] [-threaddumpmaxbackup <#>] [-ulimitmaxprocThreadDumpStart <#>] &"
 	echo "    Do not run with ROOT user !"
 	echo "    -procuniqueid . The string that is contained in your process, used to grep the ps command. No quotes allowed"
 	echo "    -checkinterval in minutes. Default = $CHECKINTERVAL. Process will be checked every x minutes."
 	echo "    -loopduration in minutes. Default = $LOOPDURATION. Help : 60 = 1 hour, 1440 = 1 day ,10080 = 1 week, 43829 ~ 1 month"
   echo "    -threaddumpdir . Default = $THREADDUMPDIR. All logs and threaddumps will be placed here."
 	echo "    -threaddumpmaxbackup the maximum threaddumps created. Default = $THREADDUMPMAXBACKUP. Avoid disk full issue."
-  echo "    -ulimitmaxproc . Default = $ULIMIT_U"
   echo "    -ulimitmaxprocThreadDumpStart . Limit where script starts to create thread dumps. Default = $ULIMT_U_TDUMP_START"
 	echo "Behavior:"
 	echo "    This script will run for <loopminutes> minutes and will monitor the number of processes created by the process"
@@ -35,10 +36,10 @@ function usage()
 	
 	echo "Output: "
 	echo "    <dir>/$0.log"
-  echo "    <dir>/threaddump-xxx"
+  echo "    <dir>/theaddump1-2015-01-22-10-45-27.log"
 	echo "Example: "
 	echo "    nohup $0 -procuniqueid 'app.name=rhq-server' -checkinterval 1 -loopduration 10080 &"
-	echo "    nohup $0 -procuniqueid 'app.name=rhq-server' -checkinterval 1 -loopduration 60 -theaddumpdir /tmp/jon-process-monitor -threaddumpmaxbackup 50 -ulimitmaxproc 1024 -ulimitmaxprocThreadDumpStart 90 &"
+	echo "    nohup $0 -procuniqueid 'app.name=rhq-server' -checkinterval 1 -loopduration 10080 -threaddumpdir /tmp/"$(basename $0)" -threaddumpmaxbackup 50 -ulimitmaxprocThreadDumpStart 800 &"
 }
 
 # first param : the option (string)
@@ -68,6 +69,8 @@ else
 		JSTACK="jstack"
 fi
 
+# TODO add check wheather a script is already running 
+
 if [ "x$(command -v $JSTACK)" = "x" ]; then
   echo "$JSTACK is not available on system or JAVA_HOME is not set !"
   exit 1
@@ -92,7 +95,6 @@ while [ "x$1" != "x" ]; do
       exit 1
     fi
     ACTION=RUN
-    PS_COMMAND="ps -C java -L -o pid,tid,pcpu,state,nlwp,args \| grep '$2'"
     PROCUNIQUEID=$2
     shift
     shift
@@ -121,12 +123,6 @@ while [ "x$1" != "x" ]; do
     shift
     shift
     ;;
-  -ulimitmaxproc)
-    hastobeanumber $1 $2
-    ULIMIT_U=$2
-    shift
-    shift
-    ;;
   -ulimitmaxprocThreadDumpStart)
     hastobeanumber $1 $2
     ULIMT_U_TDUMP_START=$2
@@ -145,6 +141,11 @@ done
 if [ "x$ACTION" = "x" ]; then
   usage
   exit 1
+fi
+
+# check if directory is
+if [ ! -d "${THREADDUMPDIR}" ]; then
+  mkdir -p $THREADDUMPDIR
 fi
 
 # calculates the loop iterations
@@ -180,7 +181,7 @@ if [ "$ACTION" == "RUN" ]; then
    		# if threads increase drastically, we start thread dumping
 			if [ $ULIMT_U_TDUMP_START -lt $singlePIDthreadCount ] && [ $THREADDUMPS_ALREADYDUMPED -lt $THREADDUMPMAXBACKUP ]; then
         # jstack -l  long listing. Prints additional information about locks
-				$JSTACK -l $PID > theaddump$THREADDUMPS_ALREADYDUMPED-$TIMESTAMP.log
+				$JSTACK -l $PID > "${THREADDUMPDIR}/theaddump$THREADDUMPS_ALREADYDUMPED-$TIMESTAMP.log"
 				let THREADDUMPS_ALREADYDUMPED=THREADDUMPS_ALREADYDUMPED+1
 			fi
 		fi
